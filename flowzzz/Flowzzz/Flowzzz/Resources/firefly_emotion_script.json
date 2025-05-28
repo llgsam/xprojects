@@ -1,0 +1,57 @@
+{
+    "name": "Firefly Dream",
+    "description": "A calming journey through a firefly-filled forest, transitioning from excitement to peaceful slumber",
+    "duration": 600,
+    "keyPoints": [
+        {
+            "timeOffset": 0,
+            "emotionIntensity": 0.3,
+            "targetColorHex": "#5D88F0"
+        },
+        {
+            "timeOffset": 60,
+            "emotionIntensity": 0.5,
+            "targetColorHex": "#7A9DF5"
+        },
+        {
+            "timeOffset": 120,
+            "emotionIntensity": 0.7,
+            "targetColorHex": "#97B2FA"
+        },
+        {
+            "timeOffset": 180,
+            "emotionIntensity": 0.8,
+            "targetColorHex": "#B4C7FF"
+        },
+        {
+            "timeOffset": 240,
+            "emotionIntensity": 0.9,
+            "targetColorHex": "#D1DCFF"
+        },
+        {
+            "timeOffset": 300,
+            "emotionIntensity": 0.8,
+            "targetColorHex": "#C3E8FF"
+        },
+        {
+            "timeOffset": 360,
+            "emotionIntensity": 0.7,
+            "targetColorHex": "#A0E5FF"
+        },
+        {
+            "timeOffset": 420,
+            "emotionIntensity": 0.6,
+            "targetColorHex": "#7DDAFF"
+        },
+        {
+            "timeOffset": 480,
+            "emotionIntensity": 0.4,
+            "targetColorHex": "#5AC9F5"
+        },
+        {
+            "timeOffset": 540,
+            "emotionIntensity": 0.2,
+            "targetColorHex": "#3BBAEB"
+        }
+    ]
+}

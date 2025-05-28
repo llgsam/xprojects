@@ -1,0 +1,40 @@
+{
+    "duration": 300.0,
+    "key_points": [
+        {
+            "timestamp": 0.0,
+            "emotion_intensity": 0.8,
+            "target_color_hex": "#FF6B6B"
+        },
+        {
+            "timestamp": 30.0,
+            "emotion_intensity": 0.6,
+            "target_color_hex": "#4ECDC4"
+        },
+        {
+            "timestamp": 60.0,
+            "emotion_intensity": 0.4,
+            "target_color_hex": "#45B7D1"
+        },
+        {
+            "timestamp": 120.0,
+            "emotion_intensity": 0.3,
+            "target_color_hex": "#96CEB4"
+        },
+        {
+            "timestamp": 180.0,
+            "emotion_intensity": 0.2,
+            "target_color_hex": "#FFEAA7"
+        },
+        {
+            "timestamp": 240.0,
+            "emotion_intensity": 0.15,
+            "target_color_hex": "#DDA0DD"
+        },
+        {
+            "timestamp": 300.0,
+            "emotion_intensity": 0.1,
+            "target_color_hex": "#E6E6FA"
+        }
+    ]
+} 
