@@ -51,10 +51,8 @@ struct RealityViewContainer: UIViewRepresentable {
         let intensity = viewModel.sceneBrightness * 300 // 根据亮度设置调整环境光照
         arView.environment.lighting.intensityExponent = intensity
         
-        // Set debug options in development builds
-        #if DEBUG
-        arView.debugOptions = [.showStatistics]
-        #endif
+        // Set debug options based on viewModel.showDebugInfo
+        viewModel.updateDebugOptions(for: arView)
         
         // 添加缩放手势识别器
         let pinchGesture = UIPinchGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePinch(_:)))
@@ -85,6 +83,12 @@ struct RealityViewContainer: UIViewRepresentable {
             viewModel.loadScene(type: viewModel.selectedScene, isNightMode: viewModel.isNightMode, into: uiView)
             context.coordinator.lastNightMode = viewModel.isNightMode
         }
+        
+        // Update debug options if needed
+        if context.coordinator.lastDebugState != viewModel.showDebugInfo {
+            viewModel.updateDebugOptions(for: uiView)
+            context.coordinator.lastDebugState = viewModel.showDebugInfo
+        }
     }
     
     func makeCoordinator() -> Coordinator {
@@ -94,13 +98,40 @@ struct RealityViewContainer: UIViewRepresentable {
     class Coordinator: NSObject {
         var parent: RealityViewContainer
         var lastNightMode: Bool
+        var lastDebugState: Bool
         weak var arView: ARView?
         private var initialScale: Float = 1.0
         private var currentScale: Float = 1.0
         
         init(_ parent: RealityViewContainer) {
+            // Store properties before super.init
             self.parent = parent
             self.lastNightMode = parent.viewModel.isNightMode
+            self.lastDebugState = parent.viewModel.showDebugInfo
+            self.initialScale = 1.0
+            self.currentScale = 1.0
+            
+            // Call super.init
+            super.init()
+            
+            // Register for debug info toggle notifications after super.init
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(handleDebugInfoToggled),
+                name: .debugInfoToggled,
+                object: nil
+            )
+        }
+        
+        deinit {
+            NotificationCenter.default.removeObserver(self)
+        }
+        
+        // Handle debug info toggle notification
+        @objc func handleDebugInfoToggled() {
+            guard let arView = arView else { return }
+            parent.viewModel.updateDebugOptions(for: arView)
+            lastDebugState = parent.viewModel.showDebugInfo
         }
         
         // 处理缩放手势

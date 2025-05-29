@@ -18,6 +18,9 @@ class SceneViewModel: ObservableObject {
     @Published var sceneBrightness: Float = 0.3 // 默认亮度值
     @Published var fireflyCount: Int = 60 // 默认萤火虫数量
     
+    // 调试信息显示控制
+    @Published var showDebugInfo: Bool = false
+    
     // MARK: - Properties
     private var cancellables = Set<AnyCancellable>()
     private var displayLink: CADisplayLink?
@@ -33,8 +36,7 @@ class SceneViewModel: ObservableObject {
         // 默认设置为夜间模式，加载FireflyNighttime.usdz
         isNightMode = true
         
-        // Set up services
-        setupServices()
+        // We'll set up services lazily when they're needed, not at init time
     }
     
     // MARK: - Public Methods
@@ -50,19 +52,20 @@ class SceneViewModel: ObservableObject {
         // 如果会话已经运行，停止它
         view.session.pause()
         
-        // 添加视图调试选项以显示更多信息
-        view.debugOptions = [.showStatistics]
-        print("[DEBUG] 已启用视图调试选项: \(view.debugOptions)")
+        // 根据showDebugInfo设置添加视图调试选项
+        updateDebugOptions(for: view)
         
-        // 检查视图的配置
-        print("[DEBUG] 视图配置检查:")
-        print("[DEBUG] - 渲染选项: \(view.renderOptions)")
-        print("[DEBUG] - 会话配置: 已禁用")
-        
-        // 加载场景
+        // 加载场景 - 先加载视觉元素，后台加载服务
         loadScene(type: selectedScene, isNightMode: isNightMode, into: view)
-        setupDynamicDrivers()
-        print("[DEBUG] 初始场景加载完成")
+        
+        // 在主线程上延迟加载服务，不阻塞界面显示
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            self?.setupServices() // 延迟加载服务
+            self?.setupDynamicDrivers() // 延迟设置动态驱动
+            print("[DEBUG] 后台服务加载完成")
+        }
+        
+        print("[DEBUG] 初始场景视觉元素加载完成")
     }
     
     /// 加载基本3D场景
@@ -231,6 +234,31 @@ class SceneViewModel: ObservableObject {
             createFireflyParticles(for: anchor, isNight: isNightMode)
             
             print("[DEBUG] 重新加载场景，亮度: \(sceneBrightness), 萤火虫数量: \(fireflyCount)")
+        }
+    }
+    
+    /// 切换调试信息显示状态
+    /// - Parameter view: 可选的ARView参数，如果提供则立即更新视图
+    func toggleDebugInfo(for view: ARView? = nil) {
+        showDebugInfo.toggle()
+        print("[DEBUG] 调试信息显示已切换为: \(showDebugInfo ? "开启" : "关闭")")
+        
+        // 如果提供了视图，立即更新调试选项
+        if let view = view {
+            updateDebugOptions(for: view)
+        }
+        
+        // 通知其他组件调试状态已更改
+        NotificationCenter.default.post(name: .debugInfoToggled, object: nil)
+    }
+    
+    /// 根据当前设置更新ARView的调试选项
+    /// - Parameter view: 要更新的ARView
+    func updateDebugOptions(for view: ARView) {
+        if showDebugInfo {
+            view.debugOptions = [.showStatistics, .showFeaturePoints]
+        } else {
+            view.debugOptions = []
         }
     }
     
@@ -494,4 +522,10 @@ class SceneViewModel: ObservableObject {
             }
         }
     }
+}
+
+// MARK: - Notification Names
+extension Notification.Name {
+    static let reloadSceneRequested = Notification.Name("reloadSceneRequested")
+    static let debugInfoToggled = Notification.Name("debugInfoToggled")
 }

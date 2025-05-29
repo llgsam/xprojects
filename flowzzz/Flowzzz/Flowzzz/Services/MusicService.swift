@@ -15,6 +15,7 @@ class MusicService: NSObject {
     
     // Current playback state
     private(set) var isPlaying = false
+    private(set) var isLoading = false
     private(set) var currentTime: TimeInterval = 0
     private(set) var duration: TimeInterval = 0
     
@@ -27,28 +28,51 @@ class MusicService: NSObject {
     /// - Returns: True if playback started successfully, false otherwise
     @discardableResult
     func playMusic(filename: String, fileExtension: String = "mp3") -> Bool {
+        // Check if we already have a prepared player
+        if let player = audioPlayer {
+            // Start playback of already prepared audio
+            player.play()
+            isPlaying = true
+            return true
+        }
+        
         guard let url = Bundle.main.url(forResource: filename, withExtension: fileExtension) else {
             print("Error: Could not find audio file \(filename).\(fileExtension)")
             return false
         }
         
+        // First set a loading flag
+        isLoading = true
+        
         do {
-            audioPlayer = try AVAudioPlayer(contentsOf: url)
-            audioPlayer?.prepareToPlay()
-            audioPlayer?.delegate = self
-            
-            // Set up audio session
+            // Set up audio session first (this is quick)
             try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
             try AVAudioSession.sharedInstance().setActive(true)
             
-            // Start playback
-            audioPlayer?.play()
-            isPlaying = true
-            duration = audioPlayer?.duration ?? 0
+            // Create the player but defer heavy operations
+            audioPlayer = try AVAudioPlayer(contentsOf: url)
+            audioPlayer?.delegate = self
+            
+            // Prepare to play in background
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                self?.audioPlayer?.prepareToPlay()
+                
+                DispatchQueue.main.async {
+                    if let player = self?.audioPlayer {
+                        // Start playback
+                        player.play()
+                        self?.isPlaying = true
+                        self?.duration = player.duration
+                        self?.isLoading = false
+                        print("[DEBUG] 音乐播放准备完成并开始播放")
+                    }
+                }
+            }
             
             return true
         } catch {
             print("Error playing audio: \(error.localizedDescription)")
+            isLoading = false
             return false
         }
     }

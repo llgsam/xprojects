@@ -1,4 +1,112 @@
 import SwiftUI
+import CoreHaptics
+
+/// Haptic feedback manager that safely handles device compatibility
+class HapticManager {
+    static let shared = HapticManager()
+    
+    // 使用UIKit触觉反馈，避免与RealityKit冲突
+    private var lightImpactGenerator: UIImpactFeedbackGenerator?
+    private var mediumImpactGenerator: UIImpactFeedbackGenerator?
+    private var heavyImpactGenerator: UIImpactFeedbackGenerator?
+    private var selectionGenerator: UISelectionFeedbackGenerator?
+    private var notificationGenerator: UINotificationFeedbackGenerator?
+    
+    // 标记是否完全禁用触觉反馈
+    private var hapticsEnabled: Bool = true
+    
+    init() {
+        // 检查用户偏好设置
+        if UserDefaults.standard.object(forKey: "hapticsEnabled") == nil {
+            // 默认关闭触觉反馈，避免与RealityKit冲突
+            UserDefaults.standard.set(false, forKey: "hapticsEnabled")
+        }
+        
+        hapticsEnabled = UserDefaults.standard.bool(forKey: "hapticsEnabled")
+        print("[DEBUG] 触觉反馈状态: \(hapticsEnabled ? "已启用" : "已禁用")")
+        
+        // 预先初始化UIKit触觉生成器
+        prepareGenerators()
+    }
+    
+    /// 预先初始化所有UIKit触觉生成器
+    private func prepareGenerators() {
+        print("[DEBUG] 初始化UIKit触觉生成器...")
+        
+        // 创建并准备各种强度的触觉生成器
+        lightImpactGenerator = UIImpactFeedbackGenerator(style: .light)
+        mediumImpactGenerator = UIImpactFeedbackGenerator(style: .medium)
+        heavyImpactGenerator = UIImpactFeedbackGenerator(style: .heavy)
+        selectionGenerator = UISelectionFeedbackGenerator()
+        notificationGenerator = UINotificationFeedbackGenerator()
+        
+        // 预热生成器以减少第一次使用时的延迟
+        lightImpactGenerator?.prepare()
+        mediumImpactGenerator?.prepare()
+        heavyImpactGenerator?.prepare()
+        selectionGenerator?.prepare()
+        notificationGenerator?.prepare()
+        
+        print("[DEBUG] UIKit触觉生成器初始化完成")
+    }
+    
+    /// 启用或禁用触觉反馈
+    func setHapticsEnabled(_ enabled: Bool) {
+        hapticsEnabled = enabled
+        print("[DEBUG] 触觉反馈已" + (enabled ? "启用" : "禁用"))
+    }
+    
+    /// 准备触觉生成器，减少使用时的延迟
+    func prepareForUse() {
+        lightImpactGenerator?.prepare()
+        mediumImpactGenerator?.prepare()
+        selectionGenerator?.prepare()
+    }
+    
+    /// 播放轻度触觉反馈
+    func playLightImpact() {
+        guard hapticsEnabled else { return }
+        
+        // 使用UIKit触觉反馈，避免使用Core Haptics
+        lightImpactGenerator?.impactOccurred()
+        
+        // 重新准备生成器以便下次使用
+        lightImpactGenerator?.prepare()
+    }
+    
+    /// 播放中度触觉反馈
+    func playMediumImpact() {
+        guard hapticsEnabled else { return }
+        
+        mediumImpactGenerator?.impactOccurred()
+        mediumImpactGenerator?.prepare()
+    }
+    
+    /// 播放重度触觉反馈
+    func playHeavyImpact() {
+        guard hapticsEnabled else { return }
+        
+        heavyImpactGenerator?.impactOccurred()
+        heavyImpactGenerator?.prepare()
+    }
+    
+    /// 播放选择反馈
+    func playSelection() {
+        guard hapticsEnabled else { return }
+        
+        selectionGenerator?.selectionChanged()
+        selectionGenerator?.prepare()
+    }
+    
+    /// 播放通知反馈
+    /// - Parameter type: 通知类型 (.success, .warning, .error)
+    func playNotification(_ type: UINotificationFeedbackGenerator.FeedbackType) {
+        guard hapticsEnabled else { return }
+        
+        notificationGenerator?.notificationOccurred(type)
+        notificationGenerator?.prepare()
+    }
+}
 
 /// Main content view for the application
 struct ContentView: View {
@@ -94,8 +202,10 @@ struct ContentView: View {
                                 }
                             }
                             .frame(maxWidth: .infinity)
-                            // 禁用触觉反馈以避免CoreHaptics错误
-                            //.sensoryFeedback(.impact(weight: .light), trigger: .never)
+                            // 使用安全的触觉反馈
+                            .onChange(of: viewModel.sceneBrightness) { _ in
+                                HapticManager.shared.playLightImpact()
+                            }
                             
                             Image(systemName: "sun.max.fill")
                                 .foregroundColor(.white)
@@ -124,8 +234,10 @@ struct ContentView: View {
                                 }
                             }
                             .frame(maxWidth: .infinity)
-                            // 禁用触觉反馈以避免CoreHaptics错误
-                            //.sensoryFeedback(.impact(weight: .light), trigger: .never)
+                            // 使用安全的触觉反馈
+                            .onChange(of: viewModel.sceneBrightness) { _ in
+                                HapticManager.shared.playLightImpact()
+                            }
                             
                             Image(systemName: "sparkles")
                                 .foregroundColor(.white)
@@ -154,6 +266,37 @@ struct ContentView: View {
                         .disabled(true) // Disabled since only firefly scene is available
                         .foregroundColor(.white)
                     }
+                    
+                    // Debug information toggle
+                    Toggle(isOn: $viewModel.showDebugInfo) {
+                        Text("显示调试信息")
+                            .foregroundColor(.white)
+                    }
+                    .toggleStyle(SwitchToggleStyle(tint: .green))
+                    .padding(.horizontal)
+                    .onChange(of: viewModel.showDebugInfo) { _ in 
+                        // 通知视图模型切换调试信息显示
+                        NotificationCenter.default.post(name: .debugInfoToggled, object: nil)
+                    }
+                    
+                    // Haptics enable/disable toggle
+                    Toggle(isOn: .init(
+                        get: { UserDefaults.standard.bool(forKey: "hapticsEnabled") },
+                        set: { newValue in
+                            UserDefaults.standard.set(newValue, forKey: "hapticsEnabled")
+                            HapticManager.shared.setHapticsEnabled(newValue)
+                            
+                            // Play feedback only if enabling
+                            if newValue {
+                                HapticManager.shared.playNotification(.success)
+                            }
+                        }
+                    )) {
+                        Text("启用触觉反馈")
+                            .foregroundColor(.white)
+                    }
+                    .toggleStyle(SwitchToggleStyle(tint: .blue))
+                    .padding(.horizontal)
                     .padding(.bottom, 30)
                 }
                 .padding()

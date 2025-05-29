@@ -20,29 +20,49 @@ class EmotionScriptService {
     /// - Returns: True if the script was loaded successfully, false otherwise
     @discardableResult
     func loadScript(named filename: String, fileExtension: String = "json") -> Bool {
-        
-        // First try to load from bundle
-        if let url = Bundle.main.url(forResource: filename, withExtension: fileExtension) {
-            do {
-                let data = try Data(contentsOf: url)
-                let decoder = JSONDecoder()
-                currentScript = try decoder.decode(EmotionScript.self, from: data)
-                startTime = Date()
-                return true
-            } catch {
-                print("Error loading script from file: \(error.localizedDescription)")
-            }
-        }
-        
-        // If file not found or error occurred, try to load the default embedded script
+        // Use the default embedded script immediately to avoid file I/O during startup
         if filename == "firefly_emotion_script" {
+            // Use the default script first for immediate response
             do {
                 let decoder = JSONDecoder()
                 currentScript = try decoder.decode(EmotionScript.self, from: defaultFireflyEmotionScript.data(using: .utf8)!)
                 startTime = Date()
+                
+                // Then try to load from bundle in background if available
+                DispatchQueue.global(qos: .utility).async { [weak self] in
+                    if let url = Bundle.main.url(forResource: filename, withExtension: fileExtension) {
+                        do {
+                            let data = try Data(contentsOf: url)
+                            let decoder = JSONDecoder()
+                            let loadedScript = try decoder.decode(EmotionScript.self, from: data)
+                            
+                            // Update on main thread
+                            DispatchQueue.main.async {
+                                self?.currentScript = loadedScript
+                                print("[DEBUG] 情绪脚本从文件更新完成")
+                            }
+                        } catch {
+                            print("[DEBUG] 使用默认脚本: \(error.localizedDescription)")
+                        }
+                    }
+                }
+                
                 return true
             } catch {
                 print("Error loading default script: \(error.localizedDescription)")
+            }
+        } else {
+            // For non-default scripts, try loading from bundle
+            if let url = Bundle.main.url(forResource: filename, withExtension: fileExtension) {
+                do {
+                    let data = try Data(contentsOf: url)
+                    let decoder = JSONDecoder()
+                    currentScript = try decoder.decode(EmotionScript.self, from: data)
+                    startTime = Date()
+                    return true
+                } catch {
+                    print("Error loading script from file: \(error.localizedDescription)")
+                }
             }
         }
         
